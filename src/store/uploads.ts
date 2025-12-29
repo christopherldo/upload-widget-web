@@ -1,37 +1,32 @@
 import { create } from "zustand";
+import { enableMapSet } from "immer";
+import { immer } from "zustand/middleware/immer";
 
 export interface Upload {
   name: string;
   file: File;
 }
 
-interface UploadState {
+interface State {
   uploads: Map<string, Upload>;
+}
+
+interface Actions {
   addUploads: (files: File[]) => void;
 }
 
-export const useUploads = create<UploadState>((set, get) => {
-  const addUploads = (files: File[]) => {
-    set((state) => {
-      const nextUploads = new Map(state.uploads);
+enableMapSet();
 
-      for (const file of files) {
-        const uploadId = crypto.randomUUID();
-
-        nextUploads.set(uploadId, {
-          name: file.name,
-          file,
-        });
-      }
-
-      return {
-        uploads: nextUploads,
-      };
-    });
-  };
-
-  return {
+export const useUploads = create<State & Actions>()(
+  immer((set) => ({
     uploads: new Map(),
-    addUploads,
-  };
-});
+    addUploads: (files) => {
+      set((state) => {
+        for (const file of files) {
+          const id = crypto.randomUUID();
+          state.uploads.set(id, { name: file.name, file });
+        }
+      });
+    },
+  }))
+);
