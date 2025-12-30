@@ -10,6 +10,8 @@ export interface Upload {
   file: File;
   abortController: AbortController;
   status: "progress" | "success" | "error" | "canceled";
+  originalSizeInBytes: number;
+  uploadSizeInBytes: number;
 }
 
 interface State {
@@ -43,6 +45,8 @@ export const useUploads = create<State & Actions>()(
             file,
             abortController,
             status: "progress",
+            originalSizeInBytes: file.size,
+            uploadSizeInBytes: 0,
           });
         }
       });
@@ -59,7 +63,17 @@ export const useUploads = create<State & Actions>()(
         if (!upload) return;
 
         await uploadFileToStorage(
-          { file: upload.file },
+          {
+            file: upload.file,
+            onProgress(sizeInBytes) {
+              set((state) => {
+                const current = state.uploads.get(uploadId);
+                if (!current) return;
+
+                current.uploadSizeInBytes = sizeInBytes;
+              });
+            },
+          },
           { signal: upload.abortController.signal }
         );
 
