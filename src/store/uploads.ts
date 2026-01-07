@@ -10,7 +10,7 @@ export interface Upload {
   id: string;
   name: string;
   file: File;
-  abortController: AbortController;
+  abortController?: AbortController;
   status: "progress" | "success" | "error" | "canceled";
   originalSizeInBytes: number;
   compressedSizeInBytes?: number;
@@ -27,6 +27,7 @@ interface Actions {
   processUpload: (uploadId: string) => Promise<void>;
   cancelUpload: (uploadId: string) => void;
   updateUpload: (uploadId: string, data: Partial<Upload>) => void;
+  retryUpload: (uploadId: string) => void;
 }
 
 enableMapSet();
@@ -42,13 +43,10 @@ export const useUploads = create<State & Actions>()(
           const id = crypto.randomUUID();
           ids.push(id);
 
-          const abortController = new AbortController();
-
           state.uploads.set(id, {
             id,
             name: file.name,
             file,
-            abortController,
             status: "progress",
             originalSizeInBytes: file.size,
             uploadSizeInBytes: 0,
@@ -62,10 +60,20 @@ export const useUploads = create<State & Actions>()(
         processUpload(id);
       }
     },
-    async processUpload(uploadId: string) {
+    async processUpload(uploadId) {
       try {
         const upload = get().uploads.get(uploadId);
         if (!upload) return;
+
+        const abortController = new AbortController();
+
+        get().updateUpload(uploadId, {
+          abortController,
+          status: "progress",
+          compressedSizeInBytes: undefined,
+          uploadSizeInBytes: 0,
+          remoteUrl: undefined,
+        });
 
         const compressedFile = await compressImage({
           file: upload.file,
@@ -87,7 +95,7 @@ export const useUploads = create<State & Actions>()(
               });
             },
           },
-          { signal: upload.abortController.signal }
+          { signal: abortController.signal }
         );
 
         get().updateUpload(uploadId, {
@@ -108,13 +116,13 @@ export const useUploads = create<State & Actions>()(
         });
       }
     },
-    cancelUpload(uploadId: string) {
+    cancelUpload(uploadId) {
       const upload = get().uploads.get(uploadId);
       if (!upload) return;
 
-      upload.abortController.abort();
+      upload.abortController?.abort();
     },
-    updateUpload(uploadId: string, data: Partial<Upload>) {
+    updateUpload(uploadId, data) {
       const upload = get().uploads.get(uploadId);
 
       if (!upload) return;
@@ -122,6 +130,9 @@ export const useUploads = create<State & Actions>()(
       set((state) => {
         state.uploads.set(uploadId, { ...upload, ...data });
       });
+    },
+    retryUpload(uploadId) {
+      get().processUpload(uploadId);
     },
   }))
 );

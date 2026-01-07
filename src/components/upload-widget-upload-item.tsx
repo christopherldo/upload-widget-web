@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import { Button } from "./ui/button";
 import { useUploads, type Upload } from "../store/uploads";
 import { formatBytes } from "../utils/format-bytes";
+import { downloadUrl } from "../utils/download-url";
 
 interface UploadWidgetUploadItemProps {
   upload: Upload;
@@ -13,6 +14,7 @@ export const UploadWidgetUploadItem = ({
   upload,
 }: UploadWidgetUploadItemProps) => {
   const cancelUpload = useUploads((store) => store.cancelUpload);
+  const retryUpload = useUploads((store) => store.retryUpload);
 
   const progress = Math.min(
     upload.compressedSizeInBytes
@@ -33,7 +35,7 @@ export const UploadWidgetUploadItem = ({
       <div className="flex flex-col gap-1">
         <span className="text-xs font-medium flex items-center gap-1">
           <ImageUp className="size-3 text-zinc-300" strokeWidth={1.5} />
-          <span>{upload.name}</span>
+          <span className="max-w-[180px] truncate">{upload.name}</span>
         </span>
 
         <span className="text-xxs text-zinc-400 flex gap-1.5 items-center">
@@ -79,16 +81,14 @@ export const UploadWidgetUploadItem = ({
         />
       </Progress.Root>
 
-      <div className="absolute top-2.5 right-2.5 flex items-center gap-1">
+      <div className="absolute top-2 right-2 flex items-center gap-1">
         <Button
-          aria-disabled={upload.status !== "success"}
+          aria-disabled={!upload.remoteUrl}
           size="icon-sm"
-          asChild
+          onClick={() => upload.remoteUrl && downloadUrl(upload.remoteUrl)}
         >
-          <a href={upload.remoteUrl} download>
-            <Download className="size-4" strokeWidth={1.5} />
-            <span className="sr-only">Download compressed image</span>
-          </a>
+          <Download className="size-4" strokeWidth={1.5} />
+          <span className="sr-only">Download compressed image</span>
         </Button>
 
         <Button
@@ -105,6 +105,7 @@ export const UploadWidgetUploadItem = ({
         <Button
           size="icon-sm"
           disabled={["canceled", "error"].includes(upload.status) === false}
+          onClick={() => retryUpload(upload.id)}
         >
           <RefreshCcw className="size-4" strokeWidth={1.5} />
           <span className="sr-only">Retry upload</span>
